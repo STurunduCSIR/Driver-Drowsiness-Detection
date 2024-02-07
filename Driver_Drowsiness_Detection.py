@@ -25,13 +25,16 @@ predictor = dlib.shape_predictor(
 # camera sensor to warm up
 print("[INFO] initializing camera...")
 
-vs = VideoStream(src=1).start()
+vs = VideoStream(src=0).start()
 # vs = VideoStream(usePiCamera=True).start() # Raspberry Pi
 time.sleep(2.0)
+start_time = time.time()
 
 # 400x225 to 1024x576
-frame_width = 1024
-frame_height = 576
+#FRAME_WIDTH = 400
+#FRAME_HEIGHT = 225
+FRAME_WIDTH = 1024
+FRAME_HEIGHT = 576
 
 # loop over the frames from the video stream
 # 2D image points. If you change the image, you need to change vector
@@ -47,10 +50,16 @@ image_points = np.array([
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
+# Constants
 EYE_AR_THRESH = 0.25
 MOUTH_AR_THRESH = 0.79
 EYE_AR_CONSEC_FRAMES = 3
 COUNTER = 0
+eye_start_time = 0
+eye_end_time = 0
+eye_closed_length = 0   # displays how long eyes remained closed
+eye_counter = 0         # number of times eyes closed
+yawn_counter = 0        # displays how many times person yawned
 
 # grab the indexes of the facial landmarks for the mouth
 (mStart, mEnd) = (49, 68)
@@ -60,7 +69,7 @@ while True:
     # have a maximum width of 400 pixels, and convert it to
     # grayscale
     frame = vs.read()
-    frame = imutils.resize(frame, width=1024, height=576)
+    frame = imutils.resize(frame, width=FRAME_WIDTH, height=FRAME_HEIGHT)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     size = gray.shape
 
@@ -203,7 +212,7 @@ while True:
             cv2.circle(frame, (int(p[0]), int(p[1])), 3, (0, 0, 255), -1)
 
         (head_tilt_degree, start_point, end_point, 
-            end_point_alt) = getHeadTiltAndCoords(size, image_points, frame_height)
+            end_point_alt) = getHeadTiltAndCoords(size, image_points, FRAME_HEIGHT)
 
         cv2.line(frame, start_point, end_point, (255, 0, 0), 2)
         cv2.line(frame, start_point, end_point_alt, (0, 0, 255), 2)
@@ -222,6 +231,9 @@ while True:
     if key == ord("q"):
         break
 
+end_time = time.time()
+total_time = end_time -  start_time
+print(f'Total Time elapsed: {total_time} seconds')
 # print(image_points)
 
 # do a bit of cleanup
