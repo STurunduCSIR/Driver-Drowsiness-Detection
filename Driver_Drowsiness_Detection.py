@@ -55,16 +55,34 @@ EYE_AR_THRESH = 0.25
 MOUTH_AR_THRESH = 0.79
 EYE_AR_CONSEC_FRAMES = 3
 COUNTER = 0
+
+# eyes closed length in time
 eye_start_time = 0
 eye_end_time = 0
-eye_closed_length = 0   # displays how long eyes remained closed
-eye_counter = 0         # number of times eyes closed
-yawn_counter = 0        # displays how many times person yawned
+
+# counting variables
+eye_counter = 0         # number of times eyes closed*
+yawn_counter = 0        # displays how many times person yawned*
 
 # grab the indexes of the facial landmarks for the mouth
 (mStart, mEnd) = (49, 68)
 
+#def timer_seconds():
+#    t = 0
+#    mins, secs = divmod(t, 60) 
+#    timer = '{:02d}:{:02d}'.format(mins, secs) 
+#    t += 1
+    
+
+t = 0
 while True:
+    
+    mins, secs = divmod(t, 15) 
+    timer = '{:02d}:{:02d}'.format(mins, secs) 
+    print(timer)
+    t += 1
+    
+    #print(timer_seconds())
     # grab the frame from the threaded video stream, resize it to
     # have a maximum width of 400 pixels, and convert it to
     # grayscale
