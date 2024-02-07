@@ -35,6 +35,9 @@ start_time = time.time()
 #FRAME_HEIGHT = 225
 FRAME_WIDTH = 1024
 FRAME_HEIGHT = 576
+eye_closed_length = 0   # displays how long eyes remained closed
+eye_counter = 0         # number of times eyes closed
+yawn_counter = 0        # displays how many times person yawned
 
 # loop over the frames from the video stream
 # 2D image points. If you change the image, you need to change vector
@@ -76,13 +79,13 @@ yawn_counter = 0        # displays how many times person yawned*
 
 t = 0
 while True:
-    
+    # Timer to establish time that has elapsed
     mins, secs = divmod(t, 15) 
     timer = '{:02d}:{:02d}'.format(mins, secs) 
-    print(timer)
     t += 1
+    #print(timer)
     
-    #print(timer_seconds())
+ 
     # grab the frame from the threaded video stream, resize it to
     # have a maximum width of 400 pixels, and convert it to
     # grayscale
@@ -91,6 +94,10 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     size = gray.shape
 
+    # Print out time elapsed
+    cv2.putText(frame, timer, (900, 20), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+    
     # detect faces in the grayscale frame
     rects = detector(gray, 0)
 
