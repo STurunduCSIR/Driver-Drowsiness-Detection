@@ -35,9 +35,6 @@ start_time = time.time()
 #FRAME_HEIGHT = 225
 FRAME_WIDTH = 1024
 FRAME_HEIGHT = 576
-eye_closed_length = 0   # displays how long eyes remained closed
-eye_counter = 0         # number of times eyes closed
-yawn_counter = 0        # displays how many times person yawned
 
 # loop over the frames from the video stream
 # 2D image points. If you change the image, you need to change vector
@@ -60,8 +57,8 @@ EYE_AR_CONSEC_FRAMES = 3
 COUNTER = 0
 
 # eyes closed length in time
-eye_start_time = 0
-eye_end_time = 0
+prev_frame_time = 0 # required for FPS calculation
+new_frame_time = 0 # required for FPS calculation
 
 # counting variables
 eye_counter = 0         # number of times eyes closed*
@@ -93,8 +90,9 @@ while True:
     frame = imutils.resize(frame, width=FRAME_WIDTH, height=FRAME_HEIGHT)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     size = gray.shape
-
-    # Print out time elapsed
+    new_frame_time = time.time()
+    
+    # Print out total time elapsed
     cv2.putText(frame, timer, (900, 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
     
@@ -143,15 +141,25 @@ while True:
             # if the eyes were closed for a sufficient number of times
             # then show the warning
             if COUNTER >= EYE_AR_CONSEC_FRAMES:
+                eye_counter += 1
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             # otherwise, the eye aspect ratio is not below the blink
             # threshold, so reset the counter and alarm
+       
+            #fps calculation for determining lenght of time eyes were closed
+                fps = 1/(new_frame_time-prev_frame_time)
+                prev_frame_time = new_frame_time
+                fps = int(fps)
+                ##print('FPS: ', fps)
+                if fps > 0:
+                    eye_closed_length = COUNTER // fps
+                    print(f'Eye closure length of time:  {eye_closed_length} seconds')
         else:
             COUNTER = 0
 
         mouth = shape[mStart:mEnd]
-
+        ##print(COUNTER) # DELETE ONCE ERROR HAS BEEN FOUND
         mouthMAR = mouth_aspect_ratio(mouth)
         mar = mouthMAR
         # compute the convex hull for the mouth, then
@@ -164,6 +172,7 @@ while True:
 
         # Draw text if mouth is open
         if mar > MOUTH_AR_THRESH:
+            yawn_counter += 1
             cv2.putText(frame, "Yawning!", (800, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
@@ -259,6 +268,11 @@ while True:
 end_time = time.time()
 total_time = end_time -  start_time
 print(f'Total Time elapsed: {total_time} seconds')
+print('Yawn count: ', yawn_counter)
+print('Eye closed count: ', eye_counter)
+
+
+
 # print(image_points)
 
 # do a bit of cleanup
