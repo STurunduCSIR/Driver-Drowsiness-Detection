@@ -62,8 +62,8 @@ new_frame_time = 0 # required for FPS calculation
 
 # counting variables
 eye_counter = 0         # number of times eyes closed*
+List = []               # storage of eye close incidence count
 yawn_counter = 0        # displays how many times person yawned*
-tracker = 1             # keeps track of eyes closing
 
 # grab the indexes of the facial landmarks for the mouth
 (mStart, mEnd) = (49, 68)
@@ -144,37 +144,36 @@ while True:
             if COUNTER >= EYE_AR_CONSEC_FRAMES:
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                
             # otherwise, the eye aspect ratio is not below the blink
             # threshold, so reset the counter and alarm
        
             #fps calculation for determining length of time eyes were closed
-                fps = 1/(new_frame_time-prev_frame_time)
+                time_difference = new_frame_time-prev_frame_time
+                #if time_difference == 0:
+                #    time_difference = 1
+                fps = 1/(time_difference)
                 prev_frame_time = new_frame_time
                 fps = int(fps)
+                ##print("counter: ", COUNTER)
+                ##print("FPS: ", fps)
                 ##print('FPS: ', fps)
                 if fps > 0:
                     eye_closed_length = fps // COUNTER
+                    current_timestamp = time.time()
                     print(f'Eye closure in:  {eye_closed_length} frames')
-                    List = []
-                    if eye_closed_length > 0:
-                        eye_counter += 1 
-                        tracker = eye_counter
-                        if eye_closed_length > tracker:
-                            eye_counter = tracker
-                        elif eye_closed_length < tracker and eye_closed_length > 0:
-                            eye_counter = tracker
-                    elif eye_closed_length == tracker:
-                            eye_counter = tracker
-                        
-                    #print('counter: ', eye_counter)
-                    #print('tracker: ', tracker)
-                    elif eye_closed_length == 0:
-                            eye_counter = 0
-
+                    if eye_closed_length > 0:   
+                        eye_counter = 0
+                    if eye_closed_length == 0:
+                        eye_counter += 1
+                        if eye_counter == 1:
+                            List.append(eye_counter)
+                            print(List)
+                
 
         else:
             COUNTER = 0
-
+        #print(List)
         mouth = shape[mStart:mEnd]
         ##print(COUNTER) # DELETE ONCE ERROR HAS BEEN FOUND
         mouthMAR = mouth_aspect_ratio(mouth)
@@ -292,7 +291,11 @@ while True:
 
 end_time = time.time()
 total_time = end_time -  start_time
+total_eye_counter = len(List)
+print(f'Total times eyes closed: {total_eye_counter} times')
 print(f'Total Time elapsed: {total_time} seconds')
+
+
 #print('Yawn count: ', yawn_counter)
 print(List)
 #print('Eye closed count: ', COUNTERr)
