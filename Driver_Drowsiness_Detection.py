@@ -54,16 +54,25 @@ image_points = np.array([
 EYE_AR_THRESH = 0.25
 MOUTH_AR_THRESH = 0.79
 EYE_AR_CONSEC_FRAMES = 3
-COUNTER = 0
 
-# eyes closed length in time
-prev_frame_time = 0 # required for FPS calculation
-new_frame_time = 0 # required for FPS calculation
+# Eye and yawn time variables
+prev_frame_time_e = 0   # required for FPS calculation - eye closure
+##new_frame_time_e = 0    # required for FPS calculation - eye closure
+prev_frame_time_y = 0   # required for FPS calculation - yawn
+##new_frame_time_y = 0    # required for FPS calculation - yawn
 
 # counting variables
-eye_counter = 0         # number of times eyes closed*
-List = []               # storage of eye close incidence count
+COUNTER_E = 0           # blink frame counter
+COUNTER_Y = 0           # yawn frame counter
+eye_counter = 0         # number of times eyes closed
+LIST_EYE_COUNTER = []   # storage of eye close event count
 yawn_counter = 0        # displays how many times person yawned*
+LIST_YAWN_COUNTER = []  # storage of yawn event count
+x = 0
+y = 0
+List = [x][y]
+
+
 
 # grab the indexes of the facial landmarks for the mouth
 (mStart, mEnd) = (49, 68)
@@ -91,7 +100,8 @@ while True:
     frame = imutils.resize(frame, width=FRAME_WIDTH, height=FRAME_HEIGHT)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     size = gray.shape
-    new_frame_time = time.time()
+    new_frame_time_e = time.time()
+    new_frame_time_y = time.time()
     
     # Print out total time elapsed
     cv2.putText(frame, timer, (900, 20), 
@@ -138,10 +148,13 @@ while True:
         # check to see if the eye aspect ratio is below the blink
         # threshold, and if so, increment the blink frame counter
         if ear < EYE_AR_THRESH:
-            COUNTER += 1
+            COUNTER_E += 1
             # if the eyes were closed for a sufficient number of times
             # then show the warning
-            if COUNTER >= EYE_AR_CONSEC_FRAMES:
+            if COUNTER_E >= EYE_AR_CONSEC_FRAMES:
+                eye_counter = 0
+                print(LIST_EYE_COUNTER) 
+                current_timestamp = time.time()
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 
@@ -149,33 +162,34 @@ while True:
             # threshold, so reset the counter and alarm
        
             #fps calculation for determining length of time eyes were closed
-                time_difference = new_frame_time-prev_frame_time
-                #if time_difference == 0:
-                #    time_difference = 1
-                fps = 1/(time_difference)
-                prev_frame_time = new_frame_time
+                time_difference_e = new_frame_time_e-prev_frame_time_e
+                ##if time_difference_e == 0:
+                 ##   fps=0
+                ##else:
+                    #time_difference_e = 1
+                fps = 1/(time_difference_e)
+                prev_frame_time_e = new_frame_time_e
                 fps = int(fps)
-                ##print("counter: ", COUNTER)
+                ##print("counter: ", COUNTER_E)
                 ##print("FPS: ", fps)
                 ##print('FPS: ', fps)
                 if fps > 0:
-                    eye_closed_length = fps // COUNTER
-                    current_timestamp = time.time()
+                    eye_closed_length = fps // COUNTER_E
                     print(f'Eye closure in:  {eye_closed_length} frames')
-                    if eye_closed_length > 0:   
-                        eye_counter = 0
-                    if eye_closed_length == 0:
-                        eye_counter += 1
-                        if eye_counter == 1:
-                            List.append(eye_counter)
-                            print(List)
+
+            else:
+                print("eyes Open")
+                eye_counter +=1  
+                if eye_counter == 1:
+                    LIST_EYE_COUNTER.append(eye_counter)
+                    print(LIST_EYE_COUNTER)      
                 
 
         else:
-            COUNTER = 0
-        #print(List)
+            #eye_counter = 0
+            COUNTER_E = 0
+        
         mouth = shape[mStart:mEnd]
-        ##print(COUNTER) # DELETE ONCE ERROR HAS BEEN FOUND
         mouthMAR = mouth_aspect_ratio(mouth)
         mar = mouthMAR
         # compute the convex hull for the mouth, then
@@ -188,17 +202,26 @@ while True:
 
         # Draw text if mouth is open
         if mar > MOUTH_AR_THRESH:
-            yawn_counter += 1
+            COUNTER_Y += 1
             cv2.putText(frame, "Yawning!", (800, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-#fps calculation for determining length of time eyes were closed
-            fps = 1/(new_frame_time-prev_frame_time)
-            prev_frame_time = new_frame_time
-            fps = int(fps)
+        
+        #fps calculation for determining frames where eyes were closed
+            fps2 = 1/(new_frame_time_y-prev_frame_time_y)
+            prev_frame_time_y = new_frame_time_y
+            fps2 = int(fps2)
             ##print('FPS: ', fps)
-            if fps > 0:
-                yawning = fps // yawn_counter
-                print(f'Yawn found in:  {yawning} frames')
+            if fps2 > 0:
+                yawn_length = fps2 // COUNTER_Y
+                print(f'Yawn found in:  {yawn_length} frames')                 
+        
+        else:
+            COUNTER_Y = 0
+            print("closed mouth")
+            yawn_counter +=1  
+            if yawn_counter == 1:
+                LIST_YAWN_COUNTER.append(yawn_counter)
+                print(LIST_YAWN_COUNTER)  
 
 
         # loop over the (x, y)-coordinates for the facial landmarks
@@ -291,13 +314,22 @@ while True:
 
 end_time = time.time()
 total_time = end_time -  start_time
-total_eye_counter = len(List)
+total_eye_counter = len(LIST_EYE_COUNTER) 
+#total_eye_counter = divmod(total_eye_counter,2)
+total_yawn_counter = len(LIST_YAWN_COUNTER)
 print(f'Total times eyes closed: {total_eye_counter} times')
 print(f'Total Time elapsed: {total_time} seconds')
+#eye_counter = divmod(eye_counter, 3)
+#print(eye_closed_length)
+#print(total_yawn_counter)
+#eye_counter = divmod(3, eye_counter)
+print("print eye:", eye_counter)
+
+
 
 
 #print('Yawn count: ', yawn_counter)
-print(List)
+
 #print('Eye closed count: ', COUNTERr)
 
 
