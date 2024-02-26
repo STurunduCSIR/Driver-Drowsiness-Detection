@@ -30,9 +30,9 @@ vs = VideoStream(src=0).start()
 time.sleep(2.0)
 start_time = time.time()
 
-# 400x225 to 1024x576
-#FRAME_WIDTH = 400
-#FRAME_HEIGHT = 225
+# Video-stream pop-up dimension settings in pixels
+## FRAME_WIDTH = 400
+## FRAME_HEIGHT = 225
 FRAME_WIDTH = 1024
 FRAME_HEIGHT = 576
 
@@ -50,7 +50,7 @@ image_points = np.array([
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
-# Constants
+# Constants for eye and mout aspect ratio calculation
 EYE_AR_THRESH = 0.25
 MOUTH_AR_THRESH = 0.79
 EYE_AR_CONSEC_FRAMES = 3
@@ -61,7 +61,7 @@ prev_frame_time_e = 0   # required for FPS calculation - eye closure
 prev_frame_time_y = 0   # required for FPS calculation - yawn
 ##new_frame_time_y = 0    # required for FPS calculation - yawn
 
-# counting variables
+# Counter variables for eye and mouth closure
 COUNTER_E = 0           # blink frame counter
 COUNTER_Y = 0           # yawn frame counter
 eye_counter = 0         # number of times eyes closed
@@ -84,13 +84,12 @@ List = [x][y]
 #    t += 1
     
 
-t = 0
+t = 0 #timer variable
 while True:
-    # Timer to establish time that has elapsed
+    # Timer to establish duration of video stream
     mins, secs = divmod(t, 15) 
     timer = '{:02d}:{:02d}'.format(mins, secs) 
     t += 1
-    #print(timer)
     
  
     # grab the frame from the threaded video stream, resize it to
@@ -161,7 +160,7 @@ while True:
             # otherwise, the eye aspect ratio is not below the blink
             # threshold, so reset the counter and alarm
        
-            #fps calculation for determining length of time eyes were closed
+            #fps calculation for determining number of frames eyes were closed in
                 time_difference_e = new_frame_time_e-prev_frame_time_e
                 ##if time_difference_e == 0:
                  ##   fps=0
@@ -170,13 +169,12 @@ while True:
                 fps = 1/(time_difference_e)
                 prev_frame_time_e = new_frame_time_e
                 fps = int(fps)
-                ##print("counter: ", COUNTER_E)
-                ##print("FPS: ", fps)
                 ##print('FPS: ', fps)
                 if fps > 0:
                     eye_closed_length = fps // COUNTER_E
                     print(f'Eye closure in:  {eye_closed_length} frames')
-
+            
+            # Tracker number of times eyes closed
             else:
                 print("eyes Open")
                 eye_counter +=1  
@@ -186,7 +184,6 @@ while True:
                 
 
         else:
-            #eye_counter = 0
             COUNTER_E = 0
         
         mouth = shape[mStart:mEnd]
@@ -206,7 +203,7 @@ while True:
             cv2.putText(frame, "Yawning!", (800, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        #fps calculation for determining frames where eyes were closed
+        #fps calculation for determining frames where yawn occured
             fps2 = 1/(new_frame_time_y-prev_frame_time_y)
             prev_frame_time_y = new_frame_time_y
             fps2 = int(fps2)
@@ -215,6 +212,7 @@ while True:
                 yawn_length = fps2 // COUNTER_Y
                 print(f'Yawn found in:  {yawn_length} frames')                 
         
+        # Tracker number of yawn events
         else:
             COUNTER_Y = 0
             print("closed mouth")
@@ -312,26 +310,20 @@ while True:
     if key == ord("q"):
         break
 
+# Timer calculation
 end_time = time.time()
 total_time = end_time -  start_time
-total_eye_counter = len(LIST_EYE_COUNTER) 
-#total_eye_counter = divmod(total_eye_counter,2)
+
+# Total number of fatigue symptom events
+total_eye_counter = len(LIST_EYE_COUNTER)-1
+##total_eye_counter = divmod(total_eye_counter,2)
 total_yawn_counter = len(LIST_YAWN_COUNTER)
 print(f'Total times eyes closed: {total_eye_counter} times')
 print(f'Total Time elapsed: {total_time} seconds')
-#eye_counter = divmod(eye_counter, 3)
-#print(eye_closed_length)
-#print(total_yawn_counter)
-#eye_counter = divmod(3, eye_counter)
-print("print eye:", eye_counter)
-
-
-
-
-#print('Yawn count: ', yawn_counter)
-
-#print('Eye closed count: ', COUNTERr)
-
+print("Total yawn count: ", total_yawn_counter)
+print("Yawn array:", yawn_counter)
+print("Total eye closure count: ", total_eye_counter)
+print("Eye closure array:", eye_counter)
 
 
 # print(image_points)
