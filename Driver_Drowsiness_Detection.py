@@ -158,25 +158,20 @@ while True:
             # if the eyes were closed for a sufficient number of times
             # then show the warning
             if COUNTER_E >= EYE_AR_CONSEC_FRAMES:
-                start = time.time()
+                ##start = time.time()
                 eye_counter = 0
-                print(LIST_EYE_COUNTER) 
-                now = datetime.datetime.now()  # closure time tracker at this point
-                start_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") # to be stored in database
-                start_timestamp = datetime.datetime.strptime(start_timestamp, "%Y-%m-%d %H:%M:%S")
+                ##print(LIST_EYE_COUNTER) 
+                now = datetime.datetime.now()  # eye closure timer starts at this point per event
+                start_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
+                start_timestamp = datetime.datetime.strptime(start_timestamp, "%Y-%m-%d %H:%M:%S") # to be stored in database
                 if time_tracker[-1]=="end":
                     LIST_EYE_TIMESTAMP.append(start_timestamp)
                 time_tracker.append("start")
-                print("start: ", start_timestamp)
+                ##print("start: ", start_timestamp)
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                print(time_tracker)
+                ##print(time_tracker)
                 
-                ##end = time.time()
-                ##diff = end - start
-                ##print("time elapsed: ", diff)
-                ##first_time = datetime.datetime.now()
-                ##first_time_frame = first_time
                 
             # otherwise, the eye aspect ratio is not below the blink
             # threshold, so reset the counter and alarm
@@ -199,25 +194,18 @@ while True:
 
             else: 
                 # Track number of times eyes closed
-                print("eyes Open")
+                ##print("eyes Open")
                 eye_counter +=1  
                 if eye_counter == 1:
                     end_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     end_timestamp = datetime.datetime.strptime(end_timestamp, "%Y-%m-%d %H:%M:%S")
-                    print("end: ", end_timestamp)
+                    ##print("end: ", end_timestamp)
                     time_tracker.append("end")
                     LIST_EYE_TIMESTAMP.append(end_timestamp)
                     LIST_EYE_COUNTER.append(eye_counter)
-                    LIST_EYECLOSURE_LENGTH.append(diff)
-                    print(LIST_EYE_COUNTER)  
-                       
-            ##difference = later_time_frame - first_time_frame
-            ##datetime.timedelta(0, 8, 562000)
-            ##seconds_in_day = 24 * 60 * 60
-            ##divmod(difference.days * seconds_in_day + difference.seconds, 60)        
+                    ##print(LIST_EYE_COUNTER)         
 
         else:
-            ##eye_counter = 0
             COUNTER_E = 0
         
         mouth = shape[mStart:mEnd]
@@ -234,6 +222,7 @@ while True:
         # Draw text if mouth is open
         if mar > MOUTH_AR_THRESH:
             COUNTER_Y += 1
+            yawn_counter = 0
             cv2.putText(frame, "Yawning!", (800, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
@@ -253,7 +242,7 @@ while True:
             yawn_counter +=1  
             if yawn_counter == 1:
                 LIST_YAWN_COUNTER.append(yawn_counter)
-                print(LIST_YAWN_COUNTER)  
+                ##print(LIST_YAWN_COUNTER)  
 
 
         # loop over the (x, y)-coordinates for the facial landmarks
@@ -356,11 +345,8 @@ DIFF_LIST = []
 for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
     DIFF_LIST.append(LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1])
 eye_counter = len(DIFF_LIST)    
-print("Difference: ", DIFF_LIST)
-##print(LIST_EYE_TIMESTAMP[1])
-##print(LIST_EYE_TIMESTAMP[0])
-##diff = LIST_EYE_TIMESTAMP[1] - LIST_EYE_TIMESTAMP[0]
-##print("Difference: ", diff)
+##print("Difference: ", DIFF_LIST)
+
 
 # Timer calculation
 end_time = time.time()
@@ -370,13 +356,13 @@ print(f'Total Time elapsed: {total_time} seconds')
 # Total number of fatigue symptom events
 #total_eye_counter = len(LIST_EYE_COUNTER)
 total_eye_counter = len(DIFF_LIST)
-total_yawn_counter = len(LIST_YAWN_COUNTER)
+total_yawn_counter = len(LIST_YAWN_COUNTER) - 1
 print(f'Eyes closed: {total_eye_counter} times')
 
  
-print(LIST_EYE_TIMESTAMP)
+##print(LIST_EYE_TIMESTAMP)
 
-##print("Total yawn count: ", total_yawn_counter)
+print("Total yawn count: ", total_yawn_counter)
 ##print("Yawn array:", yawn_counter)
 
 
