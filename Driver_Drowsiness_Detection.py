@@ -2,12 +2,14 @@
 from scipy.spatial import distance as dist
 from imutils.video import VideoStream
 from imutils import face_utils
+from datetime import datetime
 import argparse
 import imutils
 import time
 import dlib
 import math
 import cv2
+import datetime
 #from cv2 import cv2
 import numpy as np
 from EAR import eye_aspect_ratio
@@ -60,17 +62,22 @@ prev_frame_time_e = 0   # required for FPS calculation - eye closure
 ##new_frame_time_e = 0    # required for FPS calculation - eye closure
 prev_frame_time_y = 0   # required for FPS calculation - yawn
 ##new_frame_time_y = 0    # required for FPS calculation - yawn
+diff = 0
 
 # Counter variables for eye and mouth closure
 COUNTER_E = 0           # blink frame counter
 COUNTER_Y = 0           # yawn frame counter
 eye_counter = 0         # number of times eyes closed
-LIST_EYE_COUNTER = []   # storage of eye close event count
 yawn_counter = 0        # displays how many times person yawned*
+
+# Storage of data to be transfered to database
+LIST_EYE_COUNTER = []   # storage of eye close event count
+LIST_EYE_TIMESTAMP = [] # store timestamp for eye closure
+LIST_EYECLOSURE_LENGTH = [] # stores length of time eyes were closed at a time
 LIST_YAWN_COUNTER = []  # storage of yawn event count
-x = 0
-y = 0
-List = [x][y]
+LIST_YAWN_TIMESTAMP = [] # store timestamp for eye closure
+time_tracker = [] # assists to keep track of start and finish of eye closure
+
 
 
 
@@ -151,11 +158,25 @@ while True:
             # if the eyes were closed for a sufficient number of times
             # then show the warning
             if COUNTER_E >= EYE_AR_CONSEC_FRAMES:
+                start = time.time()
                 eye_counter = 0
                 print(LIST_EYE_COUNTER) 
-                current_timestamp = time.time()
+                now = datetime.datetime.now()  # closure time tracker at this point
+                start_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") # to be stored in database
+                start_timestamp = datetime.datetime.strptime(start_timestamp, "%Y-%m-%d %H:%M:%S")
+                if time_tracker[-1]=="end":
+                    LIST_EYE_TIMESTAMP.append(start_timestamp)
+                time_tracker.append("start")
+                print("start: ", start_timestamp)
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                print(time_tracker)
+                
+                ##end = time.time()
+                ##diff = end - start
+                ##print("time elapsed: ", diff)
+                ##first_time = datetime.datetime.now()
+                ##first_time_frame = first_time
                 
             # otherwise, the eye aspect ratio is not below the blink
             # threshold, so reset the counter and alarm
@@ -172,18 +193,31 @@ while True:
                 ##print('FPS: ', fps)
                 if fps > 0:
                     eye_closed_length = fps // COUNTER_E
-                    print(f'Eye closure in:  {eye_closed_length} frames')
-            
-            # Tracker number of times eyes closed
-            else:
+                    ## print(f'Eye closure in:  {eye_closed_length} frames')
+
+                    
+
+            else: 
+                # Track number of times eyes closed
                 print("eyes Open")
                 eye_counter +=1  
                 if eye_counter == 1:
+                    end_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    end_timestamp = datetime.datetime.strptime(end_timestamp, "%Y-%m-%d %H:%M:%S")
+                    print("end: ", end_timestamp)
+                    time_tracker.append("end")
+                    LIST_EYE_TIMESTAMP.append(end_timestamp)
                     LIST_EYE_COUNTER.append(eye_counter)
-                    print(LIST_EYE_COUNTER)      
-                
+                    LIST_EYECLOSURE_LENGTH.append(diff)
+                    print(LIST_EYE_COUNTER)  
+                       
+            ##difference = later_time_frame - first_time_frame
+            ##datetime.timedelta(0, 8, 562000)
+            ##seconds_in_day = 24 * 60 * 60
+            ##divmod(difference.days * seconds_in_day + difference.seconds, 60)        
 
         else:
+            ##eye_counter = 0
             COUNTER_E = 0
         
         mouth = shape[mStart:mEnd]
@@ -210,12 +244,12 @@ while True:
             ##print('FPS: ', fps)
             if fps2 > 0:
                 yawn_length = fps2 // COUNTER_Y
-                print(f'Yawn found in:  {yawn_length} frames')                 
+                #print(f'Yawn found in:  {yawn_length} frames')                 
         
         # Tracker number of yawn events
         else:
             COUNTER_Y = 0
-            print("closed mouth")
+            ##print("closed mouth")
             yawn_counter +=1  
             if yawn_counter == 1:
                 LIST_YAWN_COUNTER.append(yawn_counter)
@@ -310,20 +344,42 @@ while True:
     if key == ord("q"):
         break
 
+# Configuration of first and last eye closure timestamps
+if time_tracker[0]=="end":          # if videostream starts with eyes open, ignore first timestamp
+    LIST_EYE_TIMESTAMP = LIST_EYE_TIMESTAMP[1:]
+if time_tracker[-1]=="start":       # if videostream ends with eyes closed, add timestamp to represent ending
+    last_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
+    last_timestamp = datetime.datetime.strptime(last_timestamp, "%Y-%m-%d %H:%M:%S")
+    LIST_EYE_TIMESTAMP.append(last_timestamp)
+#n = 0
+DIFF_LIST = []
+for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
+    DIFF_LIST.append(LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1])
+eye_counter = len(DIFF_LIST)    
+print("Difference: ", DIFF_LIST)
+##print(LIST_EYE_TIMESTAMP[1])
+##print(LIST_EYE_TIMESTAMP[0])
+##diff = LIST_EYE_TIMESTAMP[1] - LIST_EYE_TIMESTAMP[0]
+##print("Difference: ", diff)
+
 # Timer calculation
 end_time = time.time()
 total_time = end_time -  start_time
+print(f'Total Time elapsed: {total_time} seconds')
 
 # Total number of fatigue symptom events
-total_eye_counter = len(LIST_EYE_COUNTER)-1
-##total_eye_counter = divmod(total_eye_counter,2)
+#total_eye_counter = len(LIST_EYE_COUNTER)
+total_eye_counter = len(DIFF_LIST)
 total_yawn_counter = len(LIST_YAWN_COUNTER)
-print(f'Total times eyes closed: {total_eye_counter} times')
-print(f'Total Time elapsed: {total_time} seconds')
-print("Total yawn count: ", total_yawn_counter)
-print("Yawn array:", yawn_counter)
-print("Total eye closure count: ", total_eye_counter)
-print("Eye closure array:", eye_counter)
+print(f'Eyes closed: {total_eye_counter} times')
+
+ 
+print(LIST_EYE_TIMESTAMP)
+
+##print("Total yawn count: ", total_yawn_counter)
+##print("Yawn array:", yawn_counter)
+
+
 
 
 # print(image_points)
