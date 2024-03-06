@@ -15,6 +15,7 @@ import numpy as np
 from EAR import eye_aspect_ratio
 from MAR import mouth_aspect_ratio
 from HeadPose import getHeadTiltAndCoords
+import psycopg2
 
 # initialize dlib's face detector (HOG-based) and then create the
 # facial landmark predictor
@@ -79,7 +80,7 @@ LIST_EYE_TIMESTAMP = []     # store timestamp for eye closure
 LIST_EYECLOSURE_LENGTH = [] # stores length of time eyes were closed at a time
 LIST_YAWN_COUNTER = []      # storage of yawn event count
 LIST_YAWN_TIMESTAMP = []    # store timestamp for eye closure
-time_tracker = []           # assists to keep track of start and finish of eye closure
+time_tracker = []           # assists to keep track of start and end of eye closure
 DROWSY = []                 # Keeps track of when drowsiness approaches
 DROWSY_TIME = []            # time stamp storage for drowsy periods
 
@@ -373,6 +374,7 @@ print(f'Total Time elapsed: {total_time} seconds')
 #total_eye_counter = len(LIST_EYE_COUNTER)
 total_eye_counter = len(LIST_EYECLOSURE_LENGTH)
 total_yawn_counter = len(LIST_YAWN_COUNTER) - 1
+total_drowsy_counter = len(DROWSY_TIME)
 print(f'Eyes closed: {total_eye_counter} times')
 
  
@@ -380,10 +382,22 @@ print(f'Eyes closed: {total_eye_counter} times')
 
 print("Total yawn count: ", total_yawn_counter)
 ##print("Yawn array:", yawn_counter)
+print("Total number of drowsy periods: ", total_drowsy_counter)
 
-#Database Table 1
-print(type(start_localcurrentdateandtime))
-
+# THE FOLLOWING TO BE PLACED IN CONFIG FILE
+# Database Table 1
+    # Start of fatigue monitoring
+print(type(start_localcurrentdateandtime)) #type datetime.datetime
+    # End of fatigue monitoring
+print(type(end_localcurrentdateandtime)) #type datetime.datetime
+    # Total time elapsed of fatigue monitoring
+print(type(total_time)) #type float
+    # Number of times eyes closed
+print(type(total_eye_counter)) #type int
+    # Number of yawns
+print(type(total_yawn_counter)) #type int
+    # Number of drowsy periods
+print(type(total_drowsy_counter)) #type int
 
 
 
