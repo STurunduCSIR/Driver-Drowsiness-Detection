@@ -399,6 +399,58 @@ print(type(total_yawn_counter)) #type int
     # Number of drowsy periods
 print(type(total_drowsy_counter)) #type int
 
+# Database connection and queries
+
+# Establish connection to the PostgreSQL database
+conn = psycopg2.connect(
+    dbname='fatigue',
+    user='postgres',
+    password='password2024',
+    host='localhost',
+    port='5432'
+)
+
+# Create a cursor object to execute PostgreSQL commands
+cur = conn.cursor()
+
+# Define the SQL statement to create the table
+create_table_query = '''
+CREATE TABLE IF NOT EXISTS Fatigue_Symptom_Stats (
+    id SERIAL PRIMARY KEY,
+    StartDate VARCHAR(255),
+    EndDate VARCHAR(255),
+    EyeClosureCount INTEGER,
+    YawnCount INTEGER,
+    DrowsyCount INTEGER
+);
+'''
+
+# Execute the SQL statement
+cur.execute(create_table_query)
+
+# Data to be logged into the database
+data_to_insert = [
+    (start_localcurrentdateandtime, end_localcurrentdateandtime, total_eye_counter, total_yawn_counter, total_drowsy_counter)
+]
+
+insert_query = '''
+INSERT INTO Fatigue_Symptom_Stats (StartDate, EndDate, EyeClosureCount, YawnCount, DrowsyCount)
+VALUES (%s, %s, %s, %s, %s);
+'''
+
+# Execute the SQL statement for each row of data
+for row in data_to_insert:
+    cur.execute(insert_query, row)
+
+
+# Commit the transaction
+conn.commit()
+
+# Close the cursor and connection
+cur.close()
+conn.close()
+
+
 
 
 # print(image_points)
