@@ -16,6 +16,7 @@ from EAR import eye_aspect_ratio
 from MAR import mouth_aspect_ratio
 from HeadPose import getHeadTiltAndCoords
 import psycopg2
+import configparser
 
 # initialize dlib's face detector (HOG-based) and then create the
 # facial landmark predictor
@@ -43,6 +44,17 @@ FRAME_HEIGHT = 576
 ## FRAME_WIDTH = 400
 ## FRAME_HEIGHT = 225
 
+# Read the configuration file
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+# Constants from config file
+TILT_THRESH = config.getint('headtilt', 'angle_thresh')
+TILT_FRAMES = config.getint('headtilt', 'tilt_frames')
+MOUTH_AR_THRESH = config.getfloat('yawncount', 'yawnthreshold')
+EYE_AR_THRESH = config.getfloat('eyeclosure', 'eyethreshold')
+EYE_AR_CONSEC_FRAMES = config.getint('eyeclosure', 'eyeclosure_frames') 
+DROWSY_THRESH = config.getint('drowsyalert', 'drowsy_threshold')
 
 # loop over the frames from the video stream
 # 2D image points. If you change the image, you need to change vector
@@ -58,10 +70,6 @@ image_points = np.array([
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
-# Constants for eye and mouth aspect ratio calculation
-EYE_AR_THRESH = 0.25
-MOUTH_AR_THRESH = 0.79
-EYE_AR_CONSEC_FRAMES = 3
 
 # Eye and yawn time variables
 prev_frame_time_e = 0   # required for FPS calculation - eye closure
@@ -77,24 +85,25 @@ yawn_counter = 0        # displays how many times person yawned*
 # Storage of data to be transfered to database
 LIST_EYE_COUNTER = []       # storage of eye close event count
 LIST_EYE_TIMESTAMP = []     # store timestamp for eye closure
-LIST_EYECLOSURE_LENGTH = [] # stores length of time eyes were closed at a time
+LIST_EYECLOSURE_TIME = []   # stores length of time eyes were closed at a time
 LIST_YAWN_COUNTER = []      # storage of yawn event count
 LIST_YAWN_TIMESTAMP = []    # store timestamp for eye closure
 time_tracker = []           # assists to keep track of start and end of eye closure
 DROWSY = []                 # Keeps track of when drowsiness approaches
 DROWSY_TIME = []            # time stamp storage for drowsy periods
+HEAD_TILT = []              # head tilt time stamp capture for those greater than 18 degrees
+HEAD_TILT_TRACKER = []      # keeps track of when head tilt period becomes dangerously long
+
 
 # grab the indexes of the facial landmarks for the mouth
 (mStart, mEnd) = (49, 68)
+
 
 while True:
     # Timer to establish duration of video stream
     mins, secs = divmod(t, 15) 
     timer = '{:02d}:{:02d}'.format(mins, secs) 
     t += 1
-    
-
-    
  
     # grab the frame from the threaded video stream, resize it to
     # have a maximum width of 400 pixels, and convert it to
@@ -169,16 +178,16 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 ##print(time_tracker)
 
-                # Monitor when 5 seconds have passed to alert drowsy. Note: 80 data points is equivalent to 5 seconds
+                # Monitor when 5 seconds have passed to alert drowsy
 
                 ##METHOD 1
                 DROWSY.append("1")
                 drowsy_length = len(DROWSY)
                 ##print(drowsy_length)
-                if drowsy_length >= 80: 
+                if drowsy_length >= DROWSY_THRESH: 
                     cv2.putText(frame, "DROWSY ALERT", (500, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                if drowsy_length == 80:
+                if drowsy_length == DROWSY_THRESH:
                     drowsy_start = current.strftime("%Y-%m-%d %H:%M:%S") 
                     #drowsy_start = datetime.datetime.strptime(start_timestamp, "%Y-%m-%d %H:%M:%S") # to be stored in database   
                     print("Drowsy at ", drowsy_start) 
@@ -232,7 +241,8 @@ while True:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
         # Draw text if mouth is open
-        if mar > MOUTH_AR_THRESH:
+        #MOUTH_AR_THRESH = config.getfloat('yawncount', 'yawnthreshold')
+        if mar > MOUTH_AR_THRESH:###################
             COUNTER_Y += 1
             yawn_counter = 0
             cv2.putText(frame, "Yawning!", (800, 20),
@@ -333,6 +343,21 @@ while True:
         if head_tilt_degree:
             cv2.putText(frame, 'Head Tilt Degree: ' + str(head_tilt_degree[0]), (170, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+        if TILT_THRESH < head_tilt_degree:
+            HEAD_TILT_TRACKER.append("1")
+            head_length = len(HEAD_TILT_TRACKER)
+            print(head_length)
+            if head_length == TILT_FRAMES:
+                current = datetime.datetime.now()  # event starts at this point
+                head_tilt_marker = current.strftime("%Y-%m-%d %H:%M:%S") 
+                HEAD_TILT.append(head_tilt_marker)
+                ##print(HEAD_TILT)
+            if head_length >= TILT_FRAMES:
+                cv2.putText(frame, 'Low head tilt alert ' + str(head_tilt_degree[0]), (170, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+        else:
+            HEAD_TILT_TRACKER = []
+
 
         # extract the mouth coordinates, then use the
         # coordinates to compute the mouth aspect ratio
@@ -352,87 +377,88 @@ if time_tracker[-1]=="start":       # if videostream ends with eyes closed, add 
     last_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
     last_timestamp = datetime.datetime.strptime(last_timestamp, "%Y-%m-%d %H:%M:%S")
     LIST_EYE_TIMESTAMP.append(last_timestamp)
-#n = 0
-##LIST_EYECLOSURE_LENGTH = []
+
 for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
-    LIST_EYECLOSURE_LENGTH.append(LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1])
-    
-##print("Difference: ", LIST_EYECLOSURE_LENGTH)
+    LIST_EYECLOSURE_TIME.append(LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1])
 
 # Date Record
-end_localcurrentdateandtime = datetime.datetime.now() # Get the local date and time
-## currentdatetime = end_localcurrentdateandtime.strftime("%m/%d/%Y") # Get the current date from the local date and time
-print("Start date and time: ", start_localcurrentdateandtime)
-print("End date and time: ", end_localcurrentdateandtime)
+end_localcurrentdateandtime = datetime.datetime.now() # Gets the local date and timestamp at termination of algorithm
 
-# Timer calculation
+# Timer calculation for whole algorithm
 end_time = time.time()
 total_time = end_time -  start_time
-print(f'Total Time elapsed: {total_time} seconds')
+
 
 # Total number of fatigue symptom events
 #total_eye_counter = len(LIST_EYE_COUNTER)
-total_eye_counter = len(LIST_EYECLOSURE_LENGTH)
+total_eye_counter = len(LIST_EYECLOSURE_TIME)
 total_yawn_counter = len(LIST_YAWN_COUNTER) - 1
 total_drowsy_counter = len(DROWSY_TIME)
+total_head_tilt_counter = len(HEAD_TILT)
+
+# Results printed in console
+print("Start date and time: ", start_localcurrentdateandtime)
+print("End date and time: ", end_localcurrentdateandtime)
+print(f'Total Time elapsed: {total_time} seconds')
 print(f'Eyes closed: {total_eye_counter} times')
-
- 
-##print(LIST_EYE_TIMESTAMP)
-
 print("Total yawn count: ", total_yawn_counter)
-##print("Yawn array:", yawn_counter)
 print("Total number of drowsy periods: ", total_drowsy_counter)
+print("Total number of drowsy head tilts: ", total_head_tilt_counter)
 
-# THE FOLLOWING TO BE PLACED IN CONFIG FILE
+
 # Database Table 1
     # Start of fatigue monitoring
-print(type(start_localcurrentdateandtime)) #type datetime.datetime
-    # End of fatigue monitoring
-print(type(end_localcurrentdateandtime)) #type datetime.datetime
-    # Total time elapsed of fatigue monitoring
-print(type(total_time)) #type float
-    # Number of times eyes closed
-print(type(total_eye_counter)) #type int
-    # Number of yawns
-print(type(total_yawn_counter)) #type int
-    # Number of drowsy periods
-print(type(total_drowsy_counter)) #type int
+##print(type(start_localcurrentdateandtime)) #type datetime.datetime
 
 # Database connection and queries
 
+# Get PostgreSQL database information from the configuration file
+db_config = config['postgresql']
+
 # Establish connection to the PostgreSQL database
 conn = psycopg2.connect(
-    dbname='fatigue',
-    user='postgres',
-    password='password2024',
-    host='localhost',
-    port='5432'
+    dbname=db_config['database'],
+    user=db_config['user'],
+    password=db_config['password'],
+    host=db_config['host'],
+    port=db_config['port']
 )
 
 # Create a cursor object to execute PostgreSQL commands
 cur = conn.cursor()
 
-# Define the SQL statement to create the table
-create_table_query = '''
-CREATE TABLE IF NOT EXISTS Fatigue_Symptom_Stats (
-    id SERIAL PRIMARY KEY,
-    StartDate VARCHAR(255),
-    EndDate VARCHAR(255),
-    EyeClosureCount INTEGER,
-    YawnCount INTEGER,
-    DrowsyCount INTEGER
-);
-'''
+def create_table1(connection, table_name, columns):
+    # Create a cursor object to execute PostgreSQL commands
+    cur = connection.cursor()
 
-# Execute the SQL statement
-cur.execute(create_table_query)
+    # Define the SQL statement to create the table
+    create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns});"
+
+    # Execute the SQL statement
+    cur.execute(create_table_query)
+
+    # Commit the transaction
+    connection.commit()
+
+    # Close the cursor
+    cur.close()
+
+# Get PostgreSQL database information from the configuration file
+main_config = config['maintable']
+
+# Get table information from the configuration file
+table_name = main_config['name']
+columns = main_config['columns']
+
+# Create the fatigue stats table using information from the config file
+create_table1(conn, table_name, columns)
 
 # Data to be logged into the database
 data_to_insert = [
     (start_localcurrentdateandtime, end_localcurrentdateandtime, total_eye_counter, total_yawn_counter, total_drowsy_counter)
 ]
 
+# Insert logged data into database
 insert_query = '''
 INSERT INTO Fatigue_Symptom_Stats (StartDate, EndDate, EyeClosureCount, YawnCount, DrowsyCount)
 VALUES (%s, %s, %s, %s, %s);
@@ -442,16 +468,12 @@ VALUES (%s, %s, %s, %s, %s);
 for row in data_to_insert:
     cur.execute(insert_query, row)
 
-
 # Commit the transaction
 conn.commit()
 
 # Close the cursor and connection
 cur.close()
 conn.close()
-
-
-
 
 # print(image_points)
 
