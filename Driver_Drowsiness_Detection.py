@@ -32,11 +32,16 @@ vs = VideoStream(src=0).start()
 time.sleep(2.0)
 start_time = time.time()
 
+# Date of Execution
+start_localcurrentdateandtime = datetime.datetime.now() # Get the local date and time
+##begindatetime = start_localcurrentdateandtime.strftime("%m/%d/%Y") # Get the current date from the local date and time
+
 # Video-stream pop-up dimension settings in pixels
-## FRAME_WIDTH = 400
-## FRAME_HEIGHT = 225
 FRAME_WIDTH = 1024
 FRAME_HEIGHT = 576
+## FRAME_WIDTH = 400
+## FRAME_HEIGHT = 225
+
 
 # loop over the frames from the video stream
 # 2D image points. If you change the image, you need to change vector
@@ -52,17 +57,15 @@ image_points = np.array([
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
-# Constants for eye and mout aspect ratio calculation
+# Constants for eye and mouth aspect ratio calculation
 EYE_AR_THRESH = 0.25
 MOUTH_AR_THRESH = 0.79
 EYE_AR_CONSEC_FRAMES = 3
 
 # Eye and yawn time variables
 prev_frame_time_e = 0   # required for FPS calculation - eye closure
-##new_frame_time_e = 0    # required for FPS calculation - eye closure
 prev_frame_time_y = 0   # required for FPS calculation - yawn
-##new_frame_time_y = 0    # required for FPS calculation - yawn
-diff = 0
+t = 0                   # variable for timer
 
 # Counter variables for eye and mouth closure
 COUNTER_E = 0           # blink frame counter
@@ -71,32 +74,25 @@ eye_counter = 0         # number of times eyes closed
 yawn_counter = 0        # displays how many times person yawned*
 
 # Storage of data to be transfered to database
-LIST_EYE_COUNTER = []   # storage of eye close event count
-LIST_EYE_TIMESTAMP = [] # store timestamp for eye closure
+LIST_EYE_COUNTER = []       # storage of eye close event count
+LIST_EYE_TIMESTAMP = []     # store timestamp for eye closure
 LIST_EYECLOSURE_LENGTH = [] # stores length of time eyes were closed at a time
-LIST_YAWN_COUNTER = []  # storage of yawn event count
-LIST_YAWN_TIMESTAMP = [] # store timestamp for eye closure
-time_tracker = [] # assists to keep track of start and finish of eye closure
-
-
-
+LIST_YAWN_COUNTER = []      # storage of yawn event count
+LIST_YAWN_TIMESTAMP = []    # store timestamp for eye closure
+time_tracker = []           # assists to keep track of start and finish of eye closure
+DROWSY = []                 # Keeps track of when drowsiness approaches
+DROWSY_TIME = []            # time stamp storage for drowsy periods
 
 # grab the indexes of the facial landmarks for the mouth
 (mStart, mEnd) = (49, 68)
 
-#def timer_seconds():
-#    t = 0
-#    mins, secs = divmod(t, 60) 
-#    timer = '{:02d}:{:02d}'.format(mins, secs) 
-#    t += 1
-    
-
-t = 0 #timer variable
 while True:
     # Timer to establish duration of video stream
     mins, secs = divmod(t, 15) 
     timer = '{:02d}:{:02d}'.format(mins, secs) 
     t += 1
+    
+
     
  
     # grab the frame from the threaded video stream, resize it to
@@ -161,8 +157,8 @@ while True:
                 ##start = time.time()
                 eye_counter = 0
                 ##print(LIST_EYE_COUNTER) 
-                now = datetime.datetime.now()  # eye closure timer starts at this point per event
-                start_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
+                current = datetime.datetime.now()  # eye closure timer starts at this point per event
+                start_timestamp = current.strftime("%Y-%m-%d %H:%M:%S") 
                 start_timestamp = datetime.datetime.strptime(start_timestamp, "%Y-%m-%d %H:%M:%S") # to be stored in database
                 if time_tracker[-1]=="end":
                     LIST_EYE_TIMESTAMP.append(start_timestamp)
@@ -171,6 +167,21 @@ while True:
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 ##print(time_tracker)
+
+                # Monitor when 5 seconds have passed to alert drowsy. Note: 80 data points is equivalent to 5 seconds
+
+                ##METHOD 1
+                DROWSY.append("1")
+                drowsy_length = len(DROWSY)
+                ##print(drowsy_length)
+                if drowsy_length >= 80: 
+                    cv2.putText(frame, "DROWSY ALERT", (500, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                if drowsy_length == 80:
+                    drowsy_start = current.strftime("%Y-%m-%d %H:%M:%S") 
+                    #drowsy_start = datetime.datetime.strptime(start_timestamp, "%Y-%m-%d %H:%M:%S") # to be stored in database   
+                    print("Drowsy at ", drowsy_start) 
+                    DROWSY_TIME.append(drowsy_start)
                 
                 
             # otherwise, the eye aspect ratio is not below the blink
@@ -190,11 +201,10 @@ while True:
                     eye_closed_length = fps // COUNTER_E
                     ## print(f'Eye closure in:  {eye_closed_length} frames')
 
-                    
-
             else: 
                 # Track number of times eyes closed
                 ##print("eyes Open")
+                DROWSY = []
                 eye_counter +=1  
                 if eye_counter == 1:
                     end_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -207,6 +217,7 @@ while True:
 
         else:
             COUNTER_E = 0
+        
         
         mouth = shape[mStart:mEnd]
         mouthMAR = mouth_aspect_ratio(mouth)
@@ -238,7 +249,6 @@ while True:
         # Tracker number of yawn events
         else:
             COUNTER_Y = 0
-            ##print("closed mouth")
             yawn_counter +=1  
             if yawn_counter == 1:
                 LIST_YAWN_COUNTER.append(yawn_counter)
@@ -325,7 +335,8 @@ while True:
 
         # extract the mouth coordinates, then use the
         # coordinates to compute the mouth aspect ratio
-    # show the frameq
+    
+    # show the frame
     cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
 
@@ -341,12 +352,17 @@ if time_tracker[-1]=="start":       # if videostream ends with eyes closed, add 
     last_timestamp = datetime.datetime.strptime(last_timestamp, "%Y-%m-%d %H:%M:%S")
     LIST_EYE_TIMESTAMP.append(last_timestamp)
 #n = 0
-DIFF_LIST = []
+##LIST_EYECLOSURE_LENGTH = []
 for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
-    DIFF_LIST.append(LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1])
-eye_counter = len(DIFF_LIST)    
-##print("Difference: ", DIFF_LIST)
+    LIST_EYECLOSURE_LENGTH.append(LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1])
+    
+##print("Difference: ", LIST_EYECLOSURE_LENGTH)
 
+# Date Record
+end_localcurrentdateandtime = datetime.datetime.now() # Get the local date and time
+## currentdatetime = end_localcurrentdateandtime.strftime("%m/%d/%Y") # Get the current date from the local date and time
+print("Start date and time: ", start_localcurrentdateandtime)
+print("End date and time: ", end_localcurrentdateandtime)
 
 # Timer calculation
 end_time = time.time()
@@ -355,7 +371,7 @@ print(f'Total Time elapsed: {total_time} seconds')
 
 # Total number of fatigue symptom events
 #total_eye_counter = len(LIST_EYE_COUNTER)
-total_eye_counter = len(DIFF_LIST)
+total_eye_counter = len(LIST_EYECLOSURE_LENGTH)
 total_yawn_counter = len(LIST_YAWN_COUNTER) - 1
 print(f'Eyes closed: {total_eye_counter} times')
 
@@ -364,6 +380,9 @@ print(f'Eyes closed: {total_eye_counter} times')
 
 print("Total yawn count: ", total_yawn_counter)
 ##print("Yawn array:", yawn_counter)
+
+#Database Table 1
+print(type(start_localcurrentdateandtime))
 
 
 
