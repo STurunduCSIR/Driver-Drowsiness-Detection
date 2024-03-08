@@ -98,6 +98,10 @@ HEAD_TILT_TRACKER = []      # keeps track of when head tilt period becomes dange
 # grab the indexes of the facial landmarks for the mouth
 (mStart, mEnd) = (49, 68)
 
+# Initialize variables for FPS calculation
+num_frames = 0
+fps_start_time = time.time()
+
 
 while True:
     # Timer to establish duration of video stream
@@ -110,8 +114,17 @@ while True:
     # grayscale
     frame = vs.read()
     frame = imutils.resize(frame, width=FRAME_WIDTH, height=FRAME_HEIGHT)
+    num_frames += 1
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     size = gray.shape
+    
+    # FPS Display
+    # Draw FPS on the frame
+    fps_calculation = num_frames / (time.time() - fps_start_time)
+    fps_text = "FPS: {:.2f}".format(fps_calculation)
+    cv2.putText(frame, fps_text, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+
+
     new_frame_time_e = time.time()
     new_frame_time_y = time.time()
     
@@ -176,7 +189,6 @@ while True:
                 ##print("start: ", start_timestamp)
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                ##print(time_tracker)
 
                 # Monitor when 5 seconds have passed to alert drowsy
 
@@ -227,6 +239,8 @@ while True:
 
         else:
             COUNTER_E = 0
+            time_tracker.append("")
+            ##print(time_tracker)
         
         
         mouth = shape[mStart:mEnd]
@@ -242,13 +256,13 @@ while True:
 
         # Draw text if mouth is open
         #MOUTH_AR_THRESH = config.getfloat('yawncount', 'yawnthreshold')
-        if mar > MOUTH_AR_THRESH:###################
+        if mar > MOUTH_AR_THRESH:
             COUNTER_Y += 1
             yawn_counter = 0
             cv2.putText(frame, "Yawning!", (800, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        #fps calculation for determining frames where yawn occured
+        #fps calculation for determining frames where yawn occured REVIEW REVIEW REVIEW
             fps2 = 1/(new_frame_time_y-prev_frame_time_y)
             prev_frame_time_y = new_frame_time_y
             fps2 = int(fps2)
@@ -363,7 +377,7 @@ while True:
         # coordinates to compute the mouth aspect ratio
     
     # show the frame
-    cv2.imshow("Frame", frame)
+    cv2.imshow("Fatigue Monitoring", frame)
     key = cv2.waitKey(1) & 0xFF
 
     # if the `q` key was pressed, break from the loop
@@ -377,10 +391,11 @@ if time_tracker[-1]=="start":       # if videostream ends with eyes closed, add 
     last_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
     last_timestamp = datetime.datetime.strptime(last_timestamp, "%Y-%m-%d %H:%M:%S")
     LIST_EYE_TIMESTAMP.append(last_timestamp)
+print(len(time_tracker))##################################REMOVE
 
 
 # Data for table 2 in fatigue database - drowsy/non-drowsy statistics
-LIST_EYECLOSURE_TIME = []
+LIST_EYECLOSURE_TIME = [] # temporary array storing timestamps (close and open) of eye closures and its duration in seconds 
 for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
     Difference = LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1]
     seconds = int(Difference.total_seconds())
@@ -471,6 +486,7 @@ for section in config.sections():
         # Create the fataddigue stats table using information from the config file
         create_table(conn, table_name, columns)
 
+# TABLE 1 Creations and Insertion
 # Data to be logged into the maintable
 data_to_insert1 = [
     (start_localcurrentdateandtime, end_localcurrentdateandtime, total_eye_counter, total_yawn_counter, total_drowsy_counter)
@@ -485,36 +501,28 @@ VALUES (%s, %s, %s, %s, %s);
 # Execute the SQL statement for each row of data
 for row in data_to_insert1:
     cur.execute(insert_query1, row)
+conn.commit()
 
-
-
-
-
-######## Trial
-
+# TABLE 2 Creations and Insertion
 # Data to be logged into the drowsy stats table
-for i in range(0, len(LIST_EYECLOSURE_TIME), 4):
-    data_to_insert2 = [
-        (LIST_EYECLOSURE_TIME[i], LIST_EYECLOSURE_TIME[i+1], LIST_EYECLOSURE_TIME[i+2], LIST_EYECLOSURE_TIME[i+3])
-    ]
+try:
+    for i in range(0, len(LIST_EYECLOSURE_TIME), 4):
+        data_to_insert2 = [
+            (LIST_EYECLOSURE_TIME[i], LIST_EYECLOSURE_TIME[i+1], LIST_EYECLOSURE_TIME[i+2], LIST_EYECLOSURE_TIME[i+3])
+        ]
+        
 
-# Insert logged data into drowsy stats table
-insert_query2 = '''
-INSERT INTO Drowsy_Stats (StartTime, EndTime, DurationSec, Drowsy)
-VALUES (%s, %s, %s, %s);
-'''
+    # Insert logged data into drowsy stats table
+    insert_query2 = '''
+    INSERT INTO Drowsy_Stats (StartTime, EndTime, DurationSec, Drowsy)
+    VALUES (%s, %s, %s, %s);
+    '''
 
-# Execute the SQL statement for each row of data
-for row in data_to_insert2:
-    cur.execute(insert_query2, row)
-
-
-
-
-
-
-
-
+    # Execute the SQL statement for each row of data
+    for row in data_to_insert2:
+        cur.execute(insert_query2, row)
+except NameError:
+        print("No record to store in 'Drowsy Table' database")
 # Commit the transaction
 conn.commit()
 
