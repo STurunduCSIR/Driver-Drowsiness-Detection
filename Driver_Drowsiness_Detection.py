@@ -85,7 +85,7 @@ yawn_counter = 0        # displays how many times person yawned*
 # Storage of data to be transfered to database
 LIST_EYE_COUNTER = []       # storage of eye close event count
 LIST_EYE_TIMESTAMP = []     # store timestamp for eye closure
-LIST_EYECLOSURE_TIME = []   # stores length of time eyes were closed at a time
+DURATION_LIST = []          # stores length of time eyes were closed at a time
 LIST_YAWN_COUNTER = []      # storage of yawn event count
 LIST_YAWN_TIMESTAMP = []    # store timestamp for eye closure
 time_tracker = []           # assists to keep track of start and end of eye closure
@@ -378,10 +378,29 @@ if time_tracker[-1]=="start":       # if videostream ends with eyes closed, add 
     last_timestamp = datetime.datetime.strptime(last_timestamp, "%Y-%m-%d %H:%M:%S")
     LIST_EYE_TIMESTAMP.append(last_timestamp)
 
-for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
-    LIST_EYECLOSURE_TIME.append(LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1])
 
-# Date Record
+# Data for table 2 in fatigue database - drowsy/non-drowsy statistics
+LIST_EYECLOSURE_TIME = []
+for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
+    Difference = LIST_EYE_TIMESTAMP[n] - LIST_EYE_TIMESTAMP[n-1]
+    seconds = int(Difference.total_seconds())
+    DURATION_LIST.append(seconds)
+    LIST_EYECLOSURE_TIME.append(LIST_EYE_TIMESTAMP[n])
+    LIST_EYECLOSURE_TIME.append(LIST_EYE_TIMESTAMP[n-1])
+    LIST_EYECLOSURE_TIME.append(seconds)
+    if seconds < 5:
+        LIST_EYECLOSURE_TIME.append("NOT DROWSY")
+    else:
+        LIST_EYECLOSURE_TIME.append("DROWSY")
+
+
+print("NEW LIST ", LIST_EYECLOSURE_TIME)
+##print("EYE CLOSE COUNTER ", DURATION_LIST)
+##print("seconds ", seconds)
+
+
+
+# End Date Record
 end_localcurrentdateandtime = datetime.datetime.now() # Gets the local date and timestamp at termination of algorithm
 
 # Timer calculation for whole algorithm
@@ -391,7 +410,7 @@ total_time = end_time -  start_time
 
 # Total number of fatigue symptom events
 #total_eye_counter = len(LIST_EYE_COUNTER)
-total_eye_counter = len(LIST_EYECLOSURE_TIME)
+total_eye_counter = len(DURATION_LIST)
 total_yawn_counter = len(LIST_YAWN_COUNTER) - 1
 total_drowsy_counter = len(DROWSY_TIME)
 total_head_tilt_counter = len(HEAD_TILT)
@@ -406,9 +425,8 @@ print("Total number of drowsy periods: ", total_drowsy_counter)
 print("Total number of drowsy head tilts: ", total_head_tilt_counter)
 
 
-# Database Table 1
-    # Start of fatigue monitoring
-##print(type(start_localcurrentdateandtime)) #type datetime.datetime
+#print("TYPE =")
+#print(type(Difference)) #type datetime.datetime
 
 # Database connection and queries
 
@@ -427,7 +445,7 @@ conn = psycopg2.connect(
 # Create a cursor object to execute PostgreSQL commands
 cur = conn.cursor()
 
-def create_table1(connection, table_name, columns):
+def create_table(connection, table_name, columns):
     # Create a cursor object to execute PostgreSQL commands
     cur = connection.cursor()
 
@@ -443,30 +461,59 @@ def create_table1(connection, table_name, columns):
     # Close the cursor
     cur.close()
 
-# Get PostgreSQL database information from the configuration file
-main_config = config['maintable']
 
-# Get table information from the configuration file
-table_name = main_config['name']
-columns = main_config['columns']
+for section in config.sections():
+    if section == 'maintable' or section == 'drowsytable':
+        # Get table information from the configuration file
+        table_name = config[section]['name']
+        columns = config[section]['columns']
 
-# Create the fatigue stats table using information from the config file
-create_table1(conn, table_name, columns)
+        # Create the fataddigue stats table using information from the config file
+        create_table(conn, table_name, columns)
 
-# Data to be logged into the database
-data_to_insert = [
+# Data to be logged into the maintable
+data_to_insert1 = [
     (start_localcurrentdateandtime, end_localcurrentdateandtime, total_eye_counter, total_yawn_counter, total_drowsy_counter)
 ]
 
-# Insert logged data into database
-insert_query = '''
+# Insert logged data into maintable
+insert_query1 = '''
 INSERT INTO Fatigue_Symptom_Stats (StartDate, EndDate, EyeClosureCount, YawnCount, DrowsyCount)
 VALUES (%s, %s, %s, %s, %s);
 '''
 
 # Execute the SQL statement for each row of data
-for row in data_to_insert:
-    cur.execute(insert_query, row)
+for row in data_to_insert1:
+    cur.execute(insert_query1, row)
+
+
+
+
+
+######## Trial
+
+# Data to be logged into the drowsy stats table
+for i in range(0, len(LIST_EYECLOSURE_TIME), 4):
+    data_to_insert2 = [
+        (LIST_EYECLOSURE_TIME[i], LIST_EYECLOSURE_TIME[i+1], LIST_EYECLOSURE_TIME[i+2], LIST_EYECLOSURE_TIME[i+3])
+    ]
+
+# Insert logged data into drowsy stats table
+insert_query2 = '''
+INSERT INTO Drowsy_Stats (StartTime, EndTime, DurationSec, Drowsy)
+VALUES (%s, %s, %s, %s);
+'''
+
+# Execute the SQL statement for each row of data
+for row in data_to_insert2:
+    cur.execute(insert_query2, row)
+
+
+
+
+
+
+
 
 # Commit the transaction
 conn.commit()
