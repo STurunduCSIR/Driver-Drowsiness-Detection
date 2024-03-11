@@ -3,6 +3,7 @@ from scipy.spatial import distance as dist
 from imutils.video import VideoStream
 from imutils import face_utils
 from datetime import datetime
+import warnings
 import argparse
 import imutils
 import time
@@ -36,7 +37,6 @@ start_time = time.time()
 
 # Date of Execution
 start_localcurrentdateandtime = datetime.datetime.now() # Get the local date and time
-##begindatetime = start_localcurrentdateandtime.strftime("%m/%d/%Y") # Get the current date from the local date and time
 
 # Video-stream pop-up dimension settings in pixels
 FRAME_WIDTH = 1024
@@ -54,7 +54,9 @@ TILT_FRAMES = config.getint('headtilt', 'tilt_frames')
 MOUTH_AR_THRESH = config.getfloat('yawncount', 'yawnthreshold')
 EYE_AR_THRESH = config.getfloat('eyeclosure', 'eyethreshold')
 EYE_AR_CONSEC_FRAMES = config.getint('eyeclosure', 'eyeclosure_frames') 
-DROWSY_THRESH = config.getint('drowsyalert', 'drowsy_threshold')
+DROWSY_THRESH = config.getint('drowsyalert', 'drowsy_threshold') # initially drowsy_threshold = 80 frames - equivalent to 5 seconds
+YAWNING =  config.getint('yawncount', 'yawn_frames') #
+FULL_YAWN = config.getint('yawncount', 'yawn_complete') 
 
 # loop over the frames from the video stream
 # 2D image points. If you change the image, you need to change vector
@@ -69,12 +71,7 @@ image_points = np.array([
 
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
-
-
-# Eye and yawn time variables
-prev_frame_time_e = 0   # required for FPS calculation - eye closure
-prev_frame_time_y = 0   # required for FPS calculation - yawn
-t = 0                   # variable for timer
+                 
 
 # Counter variables for eye and mouth closure
 COUNTER_E = 0           # blink frame counter
@@ -93,6 +90,12 @@ DROWSY = []                 # Keeps track of when drowsiness approaches
 DROWSY_TIME = []            # time stamp storage for drowsy periods
 HEAD_TILT = []              # head tilt time stamp capture for those greater than 18 degrees
 HEAD_TILT_TRACKER = []      # keeps track of when head tilt period becomes dangerously long
+Dtemp = []    # temporary arrays for keeping length of time of each symptom
+Etemp = []    # temporary arrays for keeping length of time of each symptom
+Ytemp = []    # temporary arrays for keeping length of time of each symptom
+
+# Timer variable
+t = 0  
 
 
 # grab the indexes of the facial landmarks for the mouth
@@ -100,6 +103,7 @@ HEAD_TILT_TRACKER = []      # keeps track of when head tilt period becomes dange
 
 # Initialize variables for FPS calculation
 num_frames = 0
+drowsy_frame_counter = 0
 fps_start_time = time.time()
 
 
@@ -124,10 +128,6 @@ while True:
     fps_text = "FPS: {:.2f}".format(fps_calculation)
     cv2.putText(frame, fps_text, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
-
-    new_frame_time_e = time.time()
-    new_frame_time_y = time.time()
-    
     # Print out total time elapsed
     cv2.putText(frame, timer, (900, 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
@@ -172,6 +172,7 @@ while True:
 
         # check to see if the eye aspect ratio is below the blink
         # threshold, and if so, increment the blink frame counter
+        eye_length = len(Etemp)
         if ear < EYE_AR_THRESH:
             COUNTER_E += 1
             # if the eyes were closed for a sufficient number of times
@@ -191,37 +192,48 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
                 # Monitor when 5 seconds have passed to alert drowsy
+                
+                
+                # METHOD 1
+            
+                # Calculate average number of frames passed after 5 seconds
+                sec_to_frames = int(fps_calculation * DROWSY_THRESH) # number of frames required for threshold of 5 seconds
+                if num_frames >= sec_to_frames:
+                    Dtemp.append(num_frames)
+                    #print("5 seconds passed")
+                    #print(num_frames)
+                    num_frames = 0
+                    fps_start_time = time.time()
+                average = np.mean(Dtemp)
+                #print("The threshold: ", average)
 
-                ##METHOD 1
+                # Drowsy alert thrown if total no. of frames after 5 seconds have passed
                 DROWSY.append("1")
                 drowsy_length = len(DROWSY)
                 ##print(drowsy_length)
-                if drowsy_length >= DROWSY_THRESH: 
+                if drowsy_length >= average: 
                     cv2.putText(frame, "DROWSY ALERT", (500, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-                if drowsy_length == DROWSY_THRESH:
-                    drowsy_start = current.strftime("%Y-%m-%d %H:%M:%S") 
-                    #drowsy_start = datetime.datetime.strptime(start_timestamp, "%Y-%m-%d %H:%M:%S") # to be stored in database   
+                if drowsy_length == average:
+                    drowsy_start = current.strftime("%Y-%m-%d %H:%M:%S")   
                     print("Drowsy at ", drowsy_start) 
                     DROWSY_TIME.append(drowsy_start)
-                
-                
+
+                ##METHOD 2
+                #DROWSY.append("1")
+                #drowsy_length = len(DROWSY)
+                ###print(drowsy_length)
+                #if drowsy_length >= DROWSY_THRESH: 
+                #    cv2.putText(frame, "DROWSY ALERT", (500, 50),
+                #            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                #if drowsy_length == DROWSY_THRESH:
+                #    drowsy_start = current.strftime("%Y-%m-%d %H:%M:%S")   
+                #    print("Drowsy at ", drowsy_start) 
+                #    DROWSY_TIME.append(drowsy_start)
+       
+
             # otherwise, the eye aspect ratio is not below the blink
             # threshold, so reset the counter and alarm
-       
-            #fps calculation for determining number of frames eyes were closed in
-                time_difference_e = new_frame_time_e-prev_frame_time_e
-                ##if time_difference_e == 0:
-                 ##   fps=0
-                ##else:
-                    #time_difference_e = 1
-                fps = 1/(time_difference_e)
-                prev_frame_time_e = new_frame_time_e
-                fps = int(fps)
-                ##print('FPS: ', fps)
-                if fps > 0:
-                    eye_closed_length = fps // COUNTER_E
-                    ## print(f'Eye closure in:  {eye_closed_length} frames')
 
             else: 
                 # Track number of times eyes closed
@@ -254,30 +266,35 @@ while True:
         cv2.putText(frame, "MAR: {:.2f}".format(mar), (650, 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-        # Draw text if mouth is open
-        #MOUTH_AR_THRESH = config.getfloat('yawncount', 'yawnthreshold')
+        # Write text if mouth is open
+        yawn_length = len(Ytemp)
         if mar > MOUTH_AR_THRESH:
+            print(yawn_length)
             COUNTER_Y += 1
-            yawn_counter = 0
-            cv2.putText(frame, "Yawning!", (800, 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        
-        #fps calculation for determining frames where yawn occured REVIEW REVIEW REVIEW
-            fps2 = 1/(new_frame_time_y-prev_frame_time_y)
-            prev_frame_time_y = new_frame_time_y
-            fps2 = int(fps2)
-            ##print('FPS: ', fps)
-            if fps2 > 0:
-                yawn_length = fps2 // COUNTER_Y
-                #print(f'Yawn found in:  {yawn_length} frames')                 
+            #yawn_counter = 0
+            Ytemp.append("yawn")
+            #print(yawn_length) 
+            if yawn_length >= (2*fps_calculation):  #next, replace YAWNING with 2*fps_calculation 
+                cv2.putText(frame, "Yawning!", (800, 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            if yawn_length == (FULL_YAWN): #next, replace FULL_YAWN with 4*fps_calculation
+                #yawn_counter+= 1
+                LIST_YAWN_COUNTER.append("1")
+                Ytemp = []
+
+                            
         
         # Tracker number of yawn events
         else:
             COUNTER_Y = 0
-            yawn_counter +=1  
-            if yawn_counter == 1:
-                LIST_YAWN_COUNTER.append(yawn_counter)
-                ##print(LIST_YAWN_COUNTER)  
+            
+        ##else:
+          ##  #Ytemp = []
+            ##COUNTER_Y = 0
+            ##yawn_counter +=1  
+            ##if yawn_counter == 1:
+              ##  LIST_YAWN_COUNTER.append(yawn_counter)
+                ####print(LIST_YAWN_COUNTER)  
 
 
         # loop over the (x, y)-coordinates for the facial landmarks
@@ -360,7 +377,7 @@ while True:
         if TILT_THRESH < head_tilt_degree:
             HEAD_TILT_TRACKER.append("1")
             head_length = len(HEAD_TILT_TRACKER)
-            print(head_length)
+            ##print(head_length)
             if head_length == TILT_FRAMES:
                 current = datetime.datetime.now()  # event starts at this point
                 head_tilt_marker = current.strftime("%Y-%m-%d %H:%M:%S") 
@@ -379,7 +396,6 @@ while True:
     # show the frame
     cv2.imshow("Fatigue Monitoring", frame)
     key = cv2.waitKey(1) & 0xFF
-
     # if the `q` key was pressed, break from the loop
     if key == ord("q"):
         break
@@ -391,7 +407,7 @@ if time_tracker[-1]=="start":       # if videostream ends with eyes closed, add 
     last_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
     last_timestamp = datetime.datetime.strptime(last_timestamp, "%Y-%m-%d %H:%M:%S")
     LIST_EYE_TIMESTAMP.append(last_timestamp)
-print(len(time_tracker))##################################REMOVE
+##print(len(time_tracker))##################################REMOVE
 
 
 # Data for table 2 in fatigue database - drowsy/non-drowsy statistics
@@ -409,7 +425,7 @@ for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
         LIST_EYECLOSURE_TIME.append("DROWSY")
 
 
-print("NEW LIST ", LIST_EYECLOSURE_TIME)
+##print("NEW LIST ", LIST_EYECLOSURE_TIME)
 ##print("EYE CLOSE COUNTER ", DURATION_LIST)
 ##print("seconds ", seconds)
 
@@ -426,7 +442,7 @@ total_time = end_time -  start_time
 # Total number of fatigue symptom events
 #total_eye_counter = len(LIST_EYE_COUNTER)
 total_eye_counter = len(DURATION_LIST)
-total_yawn_counter = len(LIST_YAWN_COUNTER) - 1
+total_yawn_counter = len(LIST_YAWN_COUNTER)
 total_drowsy_counter = len(DROWSY_TIME)
 total_head_tilt_counter = len(HEAD_TILT)
 
