@@ -55,7 +55,7 @@ MOUTH_AR_THRESH = config.getfloat('yawncount', 'yawnthreshold')
 EYE_AR_THRESH = config.getfloat('eyeclosure', 'eyethreshold')
 EYE_AR_CONSEC_FRAMES = config.getint('eyeclosure', 'eyeclosure_frames') 
 DROWSY_THRESH = config.getint('drowsyalert', 'drowsy_threshold') # initially drowsy_threshold = 80 frames - equivalent to 5 seconds
-YAWNING =  config.getint('yawncount', 'yawn_frames') #
+YAWNING =  config.getint('yawncount', 'yawn_progression') #
 FULL_YAWN = config.getint('yawncount', 'yawn_complete') 
 
 # loop over the frames from the video stream
@@ -172,7 +172,7 @@ while True:
 
         # check to see if the eye aspect ratio is below the blink
         # threshold, and if so, increment the blink frame counter
-        eye_length = len(Etemp)
+        
         if ear < EYE_AR_THRESH:
             COUNTER_E += 1
             # if the eyes were closed for a sufficient number of times
@@ -192,8 +192,6 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
                 # Monitor when 5 seconds have passed to alert drowsy
-                
-                
                 # METHOD 1
             
                 # Calculate average number of frames passed after 5 seconds
@@ -237,7 +235,7 @@ while True:
 
             else: 
                 # Track number of times eyes closed
-                ##print("eyes Open")
+                # Point at which eyes open
                 DROWSY = []
                 eye_counter +=1  
                 if eye_counter == 1:
@@ -266,26 +264,23 @@ while True:
         cv2.putText(frame, "MAR: {:.2f}".format(mar), (650, 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-        # Write text if mouth is open
+        # Write text if mouth is open and track number of yawn events
         yawn_length = len(Ytemp)
         if mar > MOUTH_AR_THRESH:
-            print(yawn_length)
+            #print("yawn frame: ", yawn_length)
             COUNTER_Y += 1
-            #yawn_counter = 0
             Ytemp.append("yawn")
             #print(yawn_length) 
-            if yawn_length >= (2*fps_calculation):  #next, replace YAWNING with 2*fps_calculation 
+            if yawn_length >= (YAWNING*fps_calculation):  # yawn detected after 2 seconds 
                 cv2.putText(frame, "Yawning!", (800, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            if yawn_length == (FULL_YAWN): #next, replace FULL_YAWN with 4*fps_calculation
-                #yawn_counter+= 1
+            if yawn_length == (int(FULL_YAWN*fps_calculation)): # yawn completed after at least 4 seconds
+                print(FULL_YAWN*fps_calculation)
                 LIST_YAWN_COUNTER.append("1")
-                Ytemp = []
-
-                            
-        
-        # Tracker number of yawn events
+                #Ytemp = []
+                 
         else:
+            Ytemp = []
             COUNTER_Y = 0
             
         ##else:
@@ -482,7 +477,7 @@ def create_table(connection, table_name, columns):
 
     # Define the SQL statement to create the table
     create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns});"
-
+        
     # Execute the SQL statement
     cur.execute(create_table_query)
 
@@ -499,19 +494,19 @@ for section in config.sections():
         table_name = config[section]['name']
         columns = config[section]['columns']
 
-        # Create the fataddigue stats table using information from the config file
+        # Create the fatige data stats table using information from the config file
         create_table(conn, table_name, columns)
 
 # TABLE 1 Creations and Insertion
 # Data to be logged into the maintable
 data_to_insert1 = [
-    (start_localcurrentdateandtime, end_localcurrentdateandtime, total_eye_counter, total_yawn_counter, total_drowsy_counter)
+    (start_localcurrentdateandtime, end_localcurrentdateandtime, total_eye_counter, total_yawn_counter, total_drowsy_counter, total_head_tilt_counter)
 ]
 
 # Insert logged data into maintable
 insert_query1 = '''
-INSERT INTO Fatigue_Symptom_Stats (StartDate, EndDate, EyeClosureCount, YawnCount, DrowsyCount)
-VALUES (%s, %s, %s, %s, %s);
+INSERT INTO Fatigue_Symptom_Stats (StartDate, EndDate, EyeClosureCount, YawnCount, DrowsyCount, HeadtiltCount)
+VALUES (%s, %s, %s, %s, %s, %s);
 '''
 
 # Execute the SQL statement for each row of data
@@ -539,6 +534,7 @@ try:
         cur.execute(insert_query2, row)
 except NameError:
         print("No record to store in 'Drowsy Table' database")
+
 # Commit the transaction
 conn.commit()
 
