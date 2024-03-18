@@ -26,8 +26,10 @@ detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(
     './dlib_shape_predictor/shape_predictor_68_face_landmarks.dat')
 
-# initialize the video stream and sleep for a bit, allowing the
-# camera sensor to warm up
+'''
+initialize the video stream and sleep for a bit, allowing the
+camera sensor to warm up
+'''
 print("[INFO] initializing camera...")
 
 vs = VideoStream(src=0).start()
@@ -55,8 +57,11 @@ DROWSY_THRESH = config.getint('drowsyalert', 'drowsy_threshold')
 YAWNING =  config.getint('yawncount', 'yawn_progression') 
 FULL_YAWN = config.getint('yawncount', 'yawn_complete') 
 
-# loop over the frames from the video stream
-# 2D image points. If you change the image, you need to change vector
+'''
+loop over the frames from the video stream
+2D image points. If you change the image, you need to change vector
+'''
+
 image_points = np.array([
     (359, 391),     # Nose tip 34
     (399, 561),     # Chin 9
@@ -108,10 +113,11 @@ while True:
     mins, secs = divmod(t, 15) 
     timer = '{:02d}:{:02d}'.format(mins, secs) 
     t += 1
- 
-    # grab the frame from the threaded video stream, resize it to
-    # have a maximum width of 1024 pixels, and convert it to
-    # grayscale
+    '''
+    grab the frame from the threaded video stream, resize it to
+    have a maximum width of 1024 pixels, and convert it to
+    grayscale
+    '''
     frame = vs.read()
     frame = imutils.resize(frame, width=FRAME_WIDTH, height=FRAME_HEIGHT)
     num_frames += 1
@@ -124,15 +130,17 @@ while True:
     fps_text = "FPS: {:.2f}".format(fps_calculation)
     cv2.putText(frame, fps_text, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
-    # Print out total time elapsed
+    # Display total time elapsed
     cv2.putText(frame, timer, (900, 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
     
     # detect faces in the grayscale frame
     rects = detector(gray, 0)
 
-    # check to see if a face was detected, and if so, draw the total
-    # number of faces on the frame
+    '''
+    check to see if a face was detected, and if so, draw the total
+    number of faces on the frame
+    '''
     if len(rects) > 0:
         text = "{} face(s) found".format(len(rects))
         cv2.putText(frame, text, (10, 20),
@@ -144,9 +152,10 @@ while True:
         # frame
         (bX, bY, bW, bH) = face_utils.rect_to_bb(rect)
         cv2.rectangle(frame, (bX, bY), (bX + bW, bY + bH), (0, 255, 0), 1)
-        # determine the facial landmarks for the face region, then
-        # convert the facial landmark (x, y)-coordinates to a NumPy
-        # array
+        '''
+        determine the facial landmarks for the face region, then
+        convert the facial landmark (x, y)-coordinates to a NumPy array
+        '''
         shape = predictor(gray, rect)
         shape = face_utils.shape_to_np(shape)
 
@@ -165,14 +174,16 @@ while True:
         rightEyeHull = cv2.convexHull(rightEye)
         cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
         cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
-
-        # check to see if the eye aspect ratio is below the blink
-        # threshold, and if so, increment the blink frame counter
-        
+        '''
+        check to see if the eye aspect ratio is below the blink
+        threshold, and if so, increment the blink frame counter
+        '''
         if ear < EYE_AR_THRESH:
             COUNTER_E += 1
-            # if the eyes were closed for a sufficient number of frames
-            # then store timestamp, indicate start and end of eye closure, and show the warning
+            '''
+            if the eyes were closed for a sufficient number of frames
+            then store timestamp, indicate start and end of eye closure, and show the warning
+            '''
             if COUNTER_E >= EYE_AR_CONSEC_FRAMES:
                 eye_counter = 0
                 # eye closure timer starts at this point per event
@@ -187,8 +198,10 @@ while True:
                 cv2.putText(frame, "Eyes Closed!", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-                # Monitor when threshold in seconds has passed to alert drowsiness
-                # Calculate average number of frames passed at the point of reaching drowsy threshold
+                '''
+                Monitor when threshold in seconds has passed to alert drowsiness
+                Calculate average number of frames passed at the point of reaching drowsy threshold
+                '''
                 sec_to_frames = int(fps_calculation * DROWSY_THRESH) 
                 if num_frames >= sec_to_frames:
                     Dtemp.append(num_frames)
@@ -200,7 +213,7 @@ while True:
                     average = np.mean(Dtemp)
                 print(average)
 
-                # Drowsy alert thrown if total no. of frames after set threshold has passed
+                # Drowsy alert thrown if total no. of frames after set average threshold has passed
                 DROWSY.append("1")
                 drowsy_length = len(DROWSY)
                 if drowsy_length >= average: 
@@ -223,18 +236,17 @@ while True:
                 if eye_counter == 1:
                     end_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     end_timestamp = datetime.datetime.strptime(end_timestamp, "%Y-%m-%d %H:%M:%S")
-                    ##print("end: ", end_timestamp)
                     time_tracker.append("end")
                     LIST_EYE_TIMESTAMP.append(end_timestamp)
-                    LIST_EYE_COUNTER.append(eye_counter)
-                    ##print(LIST_EYE_COUNTER)         
+                    LIST_EYE_COUNTER.append(eye_counter)       
 
         else:
             COUNTER_E = 0
             time_tracker.append("")
-
-        # extract the mouth coordinates, then use the
-        # coordinates to compute the mouth aspect ratio     
+        '''
+        extract the mouth coordinates, then use the
+        coordinates to compute the mouth aspect ratio     
+        '''
         mouth = shape[mStart:mEnd]
         mouthMAR = mouth_aspect_ratio(mouth)
         mar = mouthMAR
@@ -251,11 +263,11 @@ while True:
         if mar > MOUTH_AR_THRESH:
             COUNTER_Y += 1
             Ytemp.append("yawn")
-            # Display output text if mouth was open for the threshold period of time (e.g. thresh = 2 seconds) 
+            # Display output text if mouth was open for the threshold period of time (in seconds) 
             if yawn_length >= (YAWNING*fps_calculation):  
                 cv2.putText(frame, "Yawning!", (800, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            # Capture yawn event if yawn is completed after full yawn threshold (e.g. full yawn thresh = 4 seconds)
+            # Capture yawn event if yawn is completed after full yawn threshold
             if yawn_length == (int(FULL_YAWN*fps_calculation)): 
                 print(FULL_YAWN*fps_calculation)
                 LIST_YAWN_COUNTER.append("1")
@@ -338,9 +350,10 @@ while True:
 
         cv2.line(frame, start_point, end_point, (255, 0, 0), 2)
         cv2.line(frame, start_point, end_point_alt, (0, 0, 255), 2)
-
-        # Head tilt in degrees is calculated continuously
-        # if head tilt passes the threshold, it indicates a drooping head
+        '''
+        Head tilt in degrees is calculated continuously
+        if head tilt passes the threshold, it indicates a drooping head
+        '''
         if head_tilt_degree:
             cv2.putText(frame, 'Head Tilt Degree: ' + str(head_tilt_degree[0]), (170, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
@@ -357,8 +370,6 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
         else:
             HEAD_TILT_TRACKER = []
-
-
 
     
     # show the frame
@@ -396,7 +407,7 @@ for n in range(1, len(LIST_EYE_TIMESTAMP), 2):
 # Gets the local date and timestamp at termination of algorithm
 end_localcurrentdateandtime = datetime.datetime.now() 
 
-# Timer calculation for whole algorithm
+# Timer calculation for duration of algorithm runtime
 end_time = time.time()
 total_time = end_time -  start_time
 
@@ -417,9 +428,10 @@ print("Total number of drowsy periods: ", total_drowsy_counter)
 print("Total number of drowsy head tilts: ", total_head_tilt_counter)
 
 
-# Database connection and queries
-
-# Get PostgreSQL database information from the configuration file
+'''
+Database connection and queries
+Get PostgreSQL database information from the configuration file
+'''
 db_config = config['postgresql']
 
 # Establish connection to the PostgreSQL database
