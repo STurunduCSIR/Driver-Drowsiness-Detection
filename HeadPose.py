@@ -8,7 +8,7 @@ model_points = np.array([
     (0.0, 0.0, 0.0),             # Nose tip 34
     (0.0, -330.0, -65.0),        # Chin 9
     (-225.0, 170.0, -135.0),     # Left eye left corner 37
-    (225.0, 170.0, -135.0),      # Right eye right corne 46
+    (225.0, 170.0, -135.0),      # Right eye right corner 46
     (-150.0, -150.0, -125.0),    # Left Mouth corner 49
     (150.0, -150.0, -125.0)      # Right mouth corner 55
 ])

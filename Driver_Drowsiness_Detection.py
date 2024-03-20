@@ -195,7 +195,7 @@ while True:
                 if time_tracker[-1]=="end":
                     LIST_EYE_TIMESTAMP.append(start_timestamp)
                 time_tracker.append("start")
-                cv2.putText(frame, "Eyes Closed!", (500, 20),
+                cv2.putText(frame, "Eyes Closed", (500, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
                 '''
@@ -264,7 +264,7 @@ while True:
             COUNTER_Y += 1
             Ytemp.append("yawn")
             # Display output text if mouth was open for the threshold period of time (in seconds) 
-            if yawn_length >= (YAWNING*fps_calculation):  
+            if yawn_length > (YAWNING*fps_calculation):  
                 cv2.putText(frame, "Yawning!", (800, 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             # Capture yawn event if yawn is completed after full yawn threshold
@@ -354,6 +354,8 @@ while True:
         Head tilt in degrees is calculated continuously
         if head tilt passes the threshold, it indicates a drooping head
         '''
+        
+        head_tilt_degree = np.round(head_tilt_degree, decimals=2)
         if head_tilt_degree:
             cv2.putText(frame, 'Head Tilt Degree: ' + str(head_tilt_degree[0]), (170, 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
@@ -424,7 +426,7 @@ print("End date and time: ", end_localcurrentdateandtime)
 print(f'Total Time elapsed: {total_time} seconds')
 print(f'Eyes closed: {total_eye_counter} times')
 print("Total yawn count: ", total_yawn_counter)
-print("Total number of drowsy periods: ", total_drowsy_counter)
+print("Total number of drowsy periods: ", len(DROWSY_TIME))
 print("Total number of drowsy head tilts: ", total_head_tilt_counter)
 
 
